@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Download Directory Extension",
+  "version": "1.0.0",
+  "description": "Chrome の既定ダウンロード先の下に日付・ホスト別サブフォルダを付けて保存します。",
+  "permissions": [
+    "downloads",
+    "storage",
+    "tabs"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Download Directory Extension",
+    "default_popup": "popup.html"
+  }
+}
