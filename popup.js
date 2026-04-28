@@ -1,170 +1,82 @@
 const DEFAULT_SETTINGS = {
-  defaultMode: "standard",
-  hostOverrides: {}
+  enabled: false,
+  directory: null
 };
 
-const MODE_LABELS = {
-  standard: "通常",
-  "date-host": "YYYY_MM_DD / HOST_NAME",
-  "host-date": "HOST_NAME / YYYY_MM_DD"
-};
+const HOST_PLACEHOLDER = "${DL元のホスト}";
 
-const overrideMode = "host-date";
+const toggle = document.getElementById("enabled-toggle");
+const statusElement = document.getElementById("status");
+const directoryElement = document.getElementById("directory");
 
-const modeButtons = Array.from(document.querySelectorAll(".mode-button"));
-const currentHostElement = document.getElementById("current-host");
-const hostOverrideButton = document.getElementById("host-override-button");
-const overrideListElement = document.getElementById("override-list");
-const emptyStateElement = document.getElementById("empty-state");
-const clearOverridesButton = document.getElementById("clear-overrides-button");
-
-let currentHost = "";
 let settings = { ...DEFAULT_SETTINGS };
 
 bootstrap().catch((error) => {
   console.error("Popup initialization failed", error);
-  currentHostElement.textContent = "設定の読み込みに失敗しました。";
+  statusElement.textContent = "設定の読み込みに失敗しました。";
 });
 
-for (const button of modeButtons) {
-  button.addEventListener("click", async () => {
-    const nextMode = button.dataset.mode;
-
-    if (!nextMode || settings.defaultMode === nextMode) {
-      return;
-    }
-
-    settings.defaultMode = nextMode;
-    await saveSettings();
-    render();
-  });
-}
-
-hostOverrideButton.addEventListener("click", async () => {
-  if (!currentHost) {
-    return;
-  }
-
-  if (settings.hostOverrides[currentHost] === overrideMode) {
-    delete settings.hostOverrides[currentHost];
+toggle.addEventListener("change", async () => {
+  if (toggle.checked) {
+    settings = {
+      enabled: true,
+      directory: buildDirectory(new Date())
+    };
   } else {
-    settings.hostOverrides[currentHost] = overrideMode;
+    settings = {
+      enabled: false,
+      directory: null
+    };
   }
 
-  await saveSettings();
-  render();
-});
-
-clearOverridesButton.addEventListener("click", async () => {
-  settings.hostOverrides = {};
-  await saveSettings();
+  await chrome.storage.local.set(settings);
   render();
 });
 
 async function bootstrap() {
-  const [storedSettings, tabHost] = await Promise.all([loadSettings(), getCurrentTabHost()]);
-  settings = storedSettings;
-  currentHost = tabHost;
+  settings = normalizeSettings(await chrome.storage.local.get(DEFAULT_SETTINGS));
   render();
 }
 
-async function loadSettings() {
-  const stored = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+function normalizeSettings(stored) {
+  const directory = isValidDirectory(stored.directory) ? stored.directory : null;
+
   return {
-    defaultMode: stored.defaultMode || DEFAULT_SETTINGS.defaultMode,
-    hostOverrides: normalizeOverrides(stored.hostOverrides)
+    enabled: stored.enabled === true && directory !== null,
+    directory
   };
 }
 
-function normalizeOverrides(overrides) {
-  if (!overrides || typeof overrides !== "object") {
-    return {};
-  }
+function buildDirectory(date) {
+  const { dateSegment, hours, minutes } = buildDateParts(date);
+  return `${dateSegment}/${hours}-${minutes}`;
+}
 
-  return Object.fromEntries(
-    Object.entries(overrides)
-      .filter(([host, mode]) => typeof host === "string" && mode === overrideMode)
-      .map(([host, mode]) => [host.toLowerCase(), mode])
+function buildDateParts(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return {
+    dateSegment: `${year}-${month}-${day}`,
+    hours,
+    minutes
+  };
+}
+
+function isValidDirectory(directory) {
+  return (
+    typeof directory === "string" &&
+    /^\d{4}-\d{2}-\d{2}\/\d{2}-\d{2}$/.test(directory)
   );
 }
 
-async function getCurrentTabHost() {
-  const [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true
-  });
-
-  if (!tab || !tab.url) {
-    return "";
-  }
-
-  try {
-    return new URL(tab.url).hostname.toLowerCase();
-  } catch {
-    return "";
-  }
-}
-
-async function saveSettings() {
-  await chrome.storage.sync.set(settings);
-}
-
 function render() {
-  renderModeButtons();
-  renderCurrentHostSection();
-  renderOverrideList();
-}
-
-function renderModeButtons() {
-  for (const button of modeButtons) {
-    const isActive = button.dataset.mode === settings.defaultMode;
-    button.classList.toggle("active", isActive);
-  }
-}
-
-function renderCurrentHostSection() {
-  if (!currentHost) {
-    currentHostElement.textContent = "このタブのホストは取得できません。";
-    hostOverrideButton.disabled = true;
-    hostOverrideButton.classList.remove("active");
-    return;
-  }
-
-  currentHostElement.textContent = currentHost;
-  hostOverrideButton.disabled = false;
-
-  const isActive = settings.hostOverrides[currentHost] === overrideMode;
-  hostOverrideButton.classList.toggle("active", isActive);
-  hostOverrideButton.textContent = isActive
-    ? "このホストの固定を解除する"
-    : "このホストでは HOST_NAME / YYYY_MM_DD";
-}
-
-function renderOverrideList() {
-  overrideListElement.textContent = "";
-
-  const hosts = Object.keys(settings.hostOverrides).sort((a, b) => a.localeCompare(b));
-  emptyStateElement.hidden = hosts.length > 0;
-  clearOverridesButton.disabled = hosts.length === 0;
-
-  for (const host of hosts) {
-    const item = document.createElement("li");
-    item.className = "override-item";
-
-    const label = document.createElement("span");
-    label.className = "override-host";
-    label.textContent = `${host} -> ${MODE_LABELS[overrideMode]}`;
-
-    const removeButton = document.createElement("button");
-    removeButton.className = "remove-button";
-    removeButton.textContent = "解除";
-    removeButton.addEventListener("click", async () => {
-      delete settings.hostOverrides[host];
-      await saveSettings();
-      render();
-    });
-
-    item.append(label, removeButton);
-    overrideListElement.append(item);
-  }
+  toggle.checked = settings.enabled;
+  statusElement.textContent = settings.enabled ? "ON" : "OFF";
+  directoryElement.textContent = settings.enabled && settings.directory
+    ? `${HOST_PLACEHOLDER}/${settings.directory}/`
+    : "通常のダウンロード先";
 }

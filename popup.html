@@ -9,31 +9,22 @@
   <body>
     <main class="popup">
       <section class="panel">
-        <h1>保存先モード</h1>
-        <p class="description">Chrome の既定ダウンロード先配下でサブフォルダの付け方を切り替えます。</p>
-        <div class="mode-list" id="mode-list">
-          <button class="mode-button" data-mode="standard">通常</button>
-          <button class="mode-button" data-mode="date-host">YYYY_MM_DD / HOST_NAME</button>
-          <button class="mode-button" data-mode="host-date">HOST_NAME / YYYY_MM_DD</button>
-        </div>
-      </section>
+        <div class="header">
+          <div>
+            <h1>ダウンロードディレクトリ拡張</h1>
+            <p id="status" class="status">OFF</p>
+          </div>
 
-      <section class="panel">
-        <h2>このホストだけ固定</h2>
-        <p class="host-name" id="current-host">ホストを取得中...</p>
-        <button id="host-override-button" class="secondary-button" disabled>
-          このホストでは HOST_NAME / YYYY_MM_DD
-        </button>
-        <p class="hint">既定モードが「通常」でも、このホストだけ `HOST_NAME / YYYY_MM_DD` にできます。</p>
-      </section>
-
-      <section class="panel">
-        <div class="list-header">
-          <h2>登録済みホスト</h2>
-          <button id="clear-overrides-button" class="text-button">すべて解除</button>
+          <label class="switch" aria-label="ダウンロードディレクトリ拡張">
+            <input id="enabled-toggle" type="checkbox" />
+            <span class="slider"></span>
+          </label>
         </div>
-        <ul id="override-list" class="override-list"></ul>
-        <p id="empty-state" class="hint">まだ登録はありません。</p>
+
+        <dl class="details">
+          <dt>保存先</dt>
+          <dd id="directory">通常のダウンロード先</dd>
+        </dl>
       </section>
     </main>
 

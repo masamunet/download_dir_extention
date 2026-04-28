@@ -2,11 +2,10 @@
   "manifest_version": 3,
   "name": "Download Directory Extension",
   "version": "1.0.0",
-  "description": "Chrome の既定ダウンロード先の下に日付・ホスト別サブフォルダを付けて保存します。",
+  "description": "ON の間、Chrome の既定ダウンロード先の下に開始日時のサブフォルダを付けて保存します。",
   "permissions": [
     "downloads",
-    "storage",
-    "tabs"
+    "storage"
   ],
   "background": {
     "service_worker": "background.js"

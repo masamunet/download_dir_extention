@@ -5,146 +5,113 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #f5f7fb;
-  color: #162033;
+  background: #f4f6f8;
+  color: #1f2933;
 }
 
 .popup {
-  width: 360px;
+  width: 320px;
   padding: 12px;
 }
 
 .panel {
-  padding: 14px;
-  border-radius: 14px;
+  padding: 16px;
+  border-radius: 8px;
   background: #ffffff;
-  box-shadow: 0 8px 24px rgba(24, 39, 75, 0.08);
+  box-shadow: 0 8px 24px rgba(31, 41, 51, 0.08);
 }
 
-.panel + .panel {
-  margin-top: 12px;
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-h1,
-h2 {
-  margin: 0 0 8px;
+h1 {
+  margin: 0 0 6px;
   font-size: 15px;
+  line-height: 1.35;
 }
 
-.description,
-.hint,
-.host-name {
+.status {
   margin: 0;
   font-size: 12px;
-  line-height: 1.5;
-  color: #51607c;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: #52606d;
 }
 
-.host-name {
-  margin-bottom: 10px;
-  color: #162033;
-  font-weight: 600;
+.switch {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 30px;
 }
 
-.mode-list {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
+.switch input {
+  width: 1px;
+  height: 1px;
+  opacity: 0;
 }
 
-.mode-button,
-.secondary-button,
-.text-button,
-.remove-button {
-  border: 0;
-  border-radius: 10px;
-  font: inherit;
+.slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #cbd2d9;
   cursor: pointer;
+  transition: background 0.16s ease;
 }
 
-.mode-button {
-  width: 100%;
-  padding: 12px;
-  text-align: left;
-  background: #e9eef9;
-  color: #223252;
-  transition: background 0.15s ease, transform 0.15s ease;
+.slider::before {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(31, 41, 51, 0.22);
+  content: "";
+  transition: transform 0.16s ease;
 }
 
-.mode-button:hover,
-.secondary-button:hover,
-.text-button:hover,
-.remove-button:hover {
-  transform: translateY(-1px);
+.switch input:checked + .slider {
+  background: #2563eb;
 }
 
-.mode-button.active {
-  background: #223252;
-  color: #ffffff;
+.switch input:checked + .slider::before {
+  transform: translateX(22px);
 }
 
-.secondary-button {
-  width: 100%;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-  background: #dbeafe;
-  color: #184a88;
+.switch input:focus-visible + .slider {
+  outline: 3px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
 }
 
-.secondary-button.active {
-  background: #184a88;
-  color: #ffffff;
+.details {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid #e4e7eb;
 }
 
-.secondary-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
+.details dt {
+  font-size: 12px;
+  font-weight: 700;
+  color: #52606d;
 }
 
-.list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.text-button {
-  padding: 6px 8px;
-  background: transparent;
-  color: #4b5d80;
-}
-
-.override-list {
-  list-style: none;
-  padding: 0;
+.details dd {
   margin: 0;
-}
-
-.override-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 0;
-  border-top: 1px solid #e3eaf7;
-}
-
-.override-item:first-child {
-  border-top: 0;
-}
-
-.override-host {
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
+  padding: 10px;
+  border-radius: 6px;
+  background: #f7f9fb;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
   overflow-wrap: anywhere;
-}
-
-.remove-button {
-  flex-shrink: 0;
-  padding: 6px 8px;
-  background: #ffe4e6;
-  color: #b42318;
 }

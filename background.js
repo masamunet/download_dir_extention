@@ -1,40 +1,56 @@
 const DEFAULT_SETTINGS = {
-  defaultMode: "standard",
-  hostOverrides: {}
+  enabled: false,
+  directory: null
 };
 
-const MODE = {
-  STANDARD: "standard",
-  DATE_HOST: "date-host",
-  HOST_DATE: "host-date"
-};
+let currentSettings = { ...DEFAULT_SETTINGS };
+let settingsLoaded = false;
+let settingsReady = refreshSettings();
+
 
 chrome.runtime.onInstalled.addListener(async () => {
-  const settings = await loadSettings();
-  await chrome.storage.sync.set(settings);
+  const stored = await chrome.storage.local.get(DEFAULT_SETTINGS);
+  currentSettings = normalizeSettings(stored);
+  await chrome.storage.local.set(currentSettings);
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  settingsReady = refreshSettings();
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") {
+    return;
+  }
+
+  currentSettings = normalizeSettings({
+    enabled: changes.enabled ? changes.enabled.newValue : currentSettings.enabled,
+    directory: changes.directory ? changes.directory.newValue : currentSettings.directory
+  });
 });
 
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
-  void suggestDownloadPath(item, suggest);
-  return true;
+  if (!settingsLoaded) {
+    void settingsReady.then(() => suggestDownloadPath(item, suggest));
+    return true;
+  }
+
+  suggestDownloadPath(item, suggest);
 });
 
-async function suggestDownloadPath(item, suggest) {
+function suggestDownloadPath(item, suggest) {
   try {
-    const settings = await loadSettings();
-    const hostName = await resolveDownloadHostName(item);
-    const effectiveMode = resolveMode(settings, hostName);
+    const settings = currentSettings;
+    const hostName = resolveDownloadHostName(item) || "unknown-host";
 
-    if (effectiveMode === MODE.STANDARD || !hostName) {
+    if (!settings.enabled || !settings.directory) {
       suggest();
       return;
     }
 
-    const folderPath = buildFolderPath(effectiveMode, hostName, item.startTime);
-    const filename = getLeafFilename(item.filename);
-
     suggest({
-      filename: `${folderPath}/${filename}`
+      filename: buildSuggestedFilename(hostName, settings.directory, item.filename),
+      conflictAction: "uniquify"
     });
   } catch (error) {
     console.error("Failed to determine download path", error);
@@ -42,67 +58,57 @@ async function suggestDownloadPath(item, suggest) {
   }
 }
 
-async function resolveDownloadHostName(item) {
-  const referrerHostName = extractHostName(item.referrer);
-  if (referrerHostName) {
-    return referrerHostName;
-  }
-
-  return extractHostName(item.finalUrl || item.url);
+async function refreshSettings() {
+  currentSettings = normalizeSettings(await chrome.storage.local.get(DEFAULT_SETTINGS));
+  settingsLoaded = true;
 }
 
-async function loadSettings() {
-  const stored = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+function normalizeSettings(settings) {
+  const directory = isValidDirectory(settings.directory) ? settings.directory : null;
+
   return {
-    defaultMode: isValidMode(stored.defaultMode) ? stored.defaultMode : DEFAULT_SETTINGS.defaultMode,
-    hostOverrides: normalizeOverrides(stored.hostOverrides)
+    enabled: settings.enabled === true && directory !== null,
+    directory
   };
 }
 
-function normalizeOverrides(overrides) {
-  if (!overrides || typeof overrides !== "object") {
-    return {};
-  }
-
-  return Object.fromEntries(
-    Object.entries(overrides)
-      .filter(([host, mode]) => typeof host === "string" && mode === MODE.HOST_DATE)
-      .map(([host, mode]) => [host.toLowerCase(), mode])
+function isValidDirectory(directory) {
+  return (
+    typeof directory === "string" &&
+    /^\d{4}-\d{2}-\d{2}\/\d{2}-\d{2}$/.test(directory)
   );
 }
 
-function resolveMode(settings, hostName) {
-  if (hostName && settings.hostOverrides[hostName] === MODE.HOST_DATE) {
-    return MODE.HOST_DATE;
-  }
-
-  return settings.defaultMode;
+function buildSuggestedFilename(hostName, directory, filename) {
+  return `${sanitizePathSegment(hostName)}/${directory}/${getLeafFilename(filename)}`;
 }
 
-function buildFolderPath(mode, hostName, startTime) {
-  const safeHost = sanitizePathSegment(hostName);
-  const dateSegment = formatDateSegment(startTime);
-
-  if (mode === MODE.DATE_HOST) {
-    return `${dateSegment}/${safeHost}`;
+function resolveDownloadHostName(item) {
+  const downloadHostName = extractHostName(item.finalUrl || item.url);
+  if (downloadHostName) {
+    return downloadHostName;
   }
 
-  return `${safeHost}/${dateSegment}`;
-}
-
-function formatDateSegment(startTime) {
-  const date = startTime ? new Date(startTime) : new Date();
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}_${month}_${day}`;
+  return extractHostName(item.referrer);
 }
 
 function extractHostName(rawUrl) {
   try {
-    return new URL(rawUrl).hostname.toLowerCase();
+    const url = new URL(rawUrl);
+
+    if (url.protocol === "blob:" || url.protocol === "filesystem:") {
+      return extractEmbeddedHostName(url.pathname);
+    }
+
+    return url.hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function extractEmbeddedHostName(pathname) {
+  try {
+    return new URL(pathname).hostname.toLowerCase();
   } catch {
     return "";
   }
@@ -120,8 +126,4 @@ function sanitizeFilename(filename) {
 
 function sanitizePathSegment(segment) {
   return segment.replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_").replace(/\.+$/g, "") || "unknown-host";
-}
-
-function isValidMode(mode) {
-  return Object.values(MODE).includes(mode);
 }
